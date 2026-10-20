@@ -1,0 +1,8 @@
+# Habitica CLI - archivos locales
+*.log
+*.tmp
+tests/.tmp/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
