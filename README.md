@@ -233,15 +233,15 @@ Detalle de teclas: **[docs/COMMANDS.md#teclas-de-la-tui](docs/COMMANDS.md#teclas
 ### Importar
 
 ```powershell
-Import-Module 'D:\Projects\habitica-cli\habitica-cli.psd1'
+Import-Module .\habitica-cli.psd1
 ```
 
 Para cargarlo siempre:
 
 ```powershell
 notepad $PROFILE
-# Añade:
-Import-Module 'D:\Projects\habitica-cli\habitica-cli.psd1'
+# Añade (ajusta la ruta):
+Import-Module 'C:\ruta\a\habitica-powershell\habitica-cli.psd1'
 ```
 
 O usa:
