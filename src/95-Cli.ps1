@@ -6,7 +6,7 @@ $script:CliVersion = '1.0.0'
 
 $script:BooleanOptions = @(
     'todo', 'daily', 'habit', 'reward', 'yes', 'force', 'read', 'see', 'all',
-    'mine', 'member', 'owned', 'refresh', 'json', 'no-color', 'include-completed',
+    'dry-run', 'dryrun', 'mine', 'member', 'owned', 'refresh', 'json', 'no-color', 'include-completed',
     'up', 'down', 'both', 'clear-due', 'completed', 'reopen', 'help', 'version',
     'no-names', 'compact', 'full', 'quiet', 'status'
 )
@@ -246,13 +246,17 @@ function Show-HabiticaCliHelp {
             '  ~gold~h <comando> --help~/~         Ayuda del comando',
             '',
             '~gray~TAREAS~/~',
-            '  ~gold~h ls~/~                       Todas las tareas',
+            '  ~gold~h ls~/~                       Todas las tareas (diarias activas)',
+            '  ~gold~h ls --all~/~                 Incluye diarias inactivas',
             '  ~gold~h todo~/~                     Tareas pendientes',
-            '  ~gold~h dailies~/~                  Diarias',
+            '  ~gold~h dailies~/~                  Diarias activas hoy',
+            '  ~gold~h dailies --all~/~            Todas las diarias',
             '  ~gold~h habits~/~                   Habitos',
             '  ~gold~h rewards~/~                  Recompensas',
             '  ~gold~h add "texto"~/~              Crear tarea',
             '  ~gold~h done <n|id|texto>~/~        Completar',
+            '  ~gold~h done <n> --dry-run~/~       Ver cual se completaria',
+            '  ~gold~h which <n|id|texto>~/~       Ver a que tarea apunta',
             '  ~gold~h undo <n>~/~                 Deshacer',
             '  ~gold~h show <n>~/~                 Detalle',
             '  ~gold~h edit <n> --text "..."~/~    Editar',
@@ -289,13 +293,16 @@ function Show-HabiticaCliHelp {
             '            --tag casa --tag compras --check "Paso 1" --alias leche',
             '',
             '~gold~LISTAR Y ACCIONAR~/~',
-            '  h ls                 Todas, agrupadas',
+            '  h ls                 Todas, agrupadas (diarias activas hoy)',
             '  h todo               Pendientes',
-            '  h dailies            Diarias',
+            '  h dailies            Diarias activas hoy',
+            '  h dailies --all      Todas las diarias',
             '  h habits             Habitos',
             '  h rewards            Recompensas',
             '  h show 3             Detalle de la tarea #3',
-            '  h done 3             Completar / score up',
+            '  h done 3             Completar / score up
+  h done 3 --dry-run   Ver cual se completaria sin tocarla
+  h which 3            Ver a que tarea resuelve el 3',
             '  h undo 3             Deshacer / score down',
             '  h up 3               Subir un habito',
             '  h down 3             Bajar un habito',
@@ -613,7 +620,30 @@ function Invoke-HabiticaCliScore {
         throw ("'{0}' es una recompensa. Usa 'h buy {1}'." -f $task.Text, $Positionals[0])
     }
 
+    if (Test-HabiticaCliFlag $Options @('dry-run', 'dryrun', 'see')) {
+        Write-HabiticaBlank
+        Write-HabiticaLine ("  ~gray~[simulacion]~/~ ~cyan~{0}~/~  ~white~{1}~/~" -f $task.TypeLabel, $task.Text)
+        Write-HabiticaLine ("           ~gray~ID:~/~ ~gray~{0}~/~" -f $task.Id)
+        Write-HabiticaBlank
+        return
+    }
+
     Invoke-HabiticaTaskScore -Id $task.Id -Direction $Direction -Text $task.Text | Out-Null
+}
+
+function Invoke-HabiticaCliWhich {
+    param([string[]]$Positionals)
+
+    if ($Positionals.Count -lt 1) { throw 'Uso: h which <n|id|texto>' }
+    $task = Resolve-HabiticaTaskReference -Reference ([string]$Positionals[0])
+
+    $width = Get-TerminalWidth
+    $lines = Get-HabiticaTaskDetailLines -Task $task -ContentWidth ($width - 4)
+    Write-HabiticaBlank
+    foreach ($line in (Get-HabiticaPanelLines -Title 'RESOLUCION DE REFERENCIA' -Lines $lines -Width $width -Color 'cyan')) {
+        Write-HabiticaLine $line
+    }
+    Write-HabiticaBlank
 }
 
 function Invoke-HabiticaCliCheck {
@@ -1017,7 +1047,7 @@ function Invoke-HabiticaCli {
 
     if (Test-HabiticaCliFlag $options @('help')) {
         $helpTopic = switch ($commandKey) {
-            { $_ -in @('add', 'new', 'edit', 'done', 'complete', 'undo', 'up', 'down', 'buy', 'show', 'rm', 'del', 'move', 'clear', 'check', 'tick', 'untick', 'todo', 'todos', 'tareas', 'daily', 'dailies', 'diarias', 'habit', 'habits', 'habitos', 'reward', 'rewards', 'recompensas', 'ls', 'list', 'all') } { 'tasks' }
+            { $_ -in @('add', 'new', 'edit', 'done', 'complete', 'undo', 'up', 'down', 'buy', 'show', 'which', 'rm', 'del', 'move', 'clear', 'check', 'tick', 'untick', 'todo', 'todos', 'tareas', 'daily', 'dailies', 'diarias', 'habit', 'habits', 'habitos', 'reward', 'rewards', 'recompensas', 'ls', 'list', 'all') } { 'tasks' }
             { $_ -in @('party', 'chat', 'quest', 'quests', 'challenges', 'challenge', 'retos', 'inbox', 'messages', 'groups') } { 'social' }
             { $_ -in @('config', 'login', 'setup', 'status') } { 'config' }
             'api' { 'api' }
@@ -1038,15 +1068,15 @@ function Invoke-HabiticaCli {
             'ui' { Start-HabiticaUi }
             'tui' { Start-HabiticaUi }
 
-            'ls' { Show-HabiticaAllTasks -Tag $listTag -Search $listSearch }
-            'list' { Show-HabiticaAllTasks -Tag $listTag -Search $listSearch }
-            'all' { Show-HabiticaAllTasks -Tag $listTag -Search $listSearch }
+            'ls' { Show-HabiticaAllTasks -Tag $listTag -Search $listSearch -IncludeInactiveDailies:(Test-HabiticaCliFlag $options @('all')) }
+            'list' { Show-HabiticaAllTasks -Tag $listTag -Search $listSearch -IncludeInactiveDailies:(Test-HabiticaCliFlag $options @('all')) }
+            'all' { Show-HabiticaAllTasks -Tag $listTag -Search $listSearch -IncludeInactiveDailies:(Test-HabiticaCliFlag $options @('all')) }
             'todo' { Show-HabiticaTaskList -Type Todo -Tag $listTag -Search $listSearch }
             'todos' { Show-HabiticaTaskList -Type Todo -Tag $listTag -Search $listSearch }
             'tareas' { Show-HabiticaTaskList -Type Todo -Tag $listTag -Search $listSearch }
-            'daily' { Show-HabiticaTaskList -Type Daily -Tag $listTag -Search $listSearch }
-            'dailies' { Show-HabiticaTaskList -Type Daily -Tag $listTag -Search $listSearch }
-            'diarias' { Show-HabiticaTaskList -Type Daily -Tag $listTag -Search $listSearch }
+            'daily' { Show-HabiticaTaskList -Type Daily -Tag $listTag -Search $listSearch -ActiveOnly:(-not (Test-HabiticaCliFlag $options @('all'))) }
+            'dailies' { Show-HabiticaTaskList -Type Daily -Tag $listTag -Search $listSearch -ActiveOnly:(-not (Test-HabiticaCliFlag $options @('all'))) }
+            'diarias' { Show-HabiticaTaskList -Type Daily -Tag $listTag -Search $listSearch -ActiveOnly:(-not (Test-HabiticaCliFlag $options @('all'))) }
             'habit' { Show-HabiticaTaskList -Type Habit -Tag $listTag -Search $listSearch }
             'habits' { Show-HabiticaTaskList -Type Habit -Tag $listTag -Search $listSearch }
             'habitos' { Show-HabiticaTaskList -Type Habit -Tag $listTag -Search $listSearch }
@@ -1057,6 +1087,7 @@ function Invoke-HabiticaCli {
             'completadas' { Show-HabiticaTaskList -Type CompletedTodo }
 
             'done' { Invoke-HabiticaCliScore -Options $options -Positionals $positionals -Direction Up }
+            'which' { Invoke-HabiticaCliWhich -Positionals $positionals }
 
             'add' { Invoke-HabiticaCliAdd -Options $options -Positionals $positionals }
             'new' { Invoke-HabiticaCliAdd -Options $options -Positionals $positionals }
@@ -1072,7 +1103,15 @@ function Invoke-HabiticaCli {
                 if ($positionals.Count -lt 1) { throw 'Uso: h buy <n|id|texto>' }
                 $task = Resolve-HabiticaTaskReference -Reference ([string]$positionals[0])
                 if ($task.Type -ne 'reward') { throw ("'{0}' no es una recompensa." -f $task.Text) }
-                Invoke-HabiticaTaskScore -Id $task.Id -Direction Down -Text $task.Text | Out-Null
+                if (Test-HabiticaCliFlag $options @('dry-run', 'dryrun', 'see')) {
+                    Write-HabiticaBlank
+                    Write-HabiticaLine ("  ~gray~[simulacion]~/~ ~gold~Comprar~/~  ~white~{0}~/~" -f $task.Text)
+                    Write-HabiticaLine ("           ~gray~ID:~/~ ~gray~{0}~/~" -f $task.Id)
+                    Write-HabiticaBlank
+                }
+                else {
+                    Invoke-HabiticaTaskScore -Id $task.Id -Direction Down -Text $task.Text | Out-Null
+                }
             }
             'move' {
                 if ($positionals.Count -lt 2) { throw 'Uso: h move <n|id> <posicion>' }

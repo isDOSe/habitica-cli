@@ -80,10 +80,17 @@ function Get-HabiticaPriorityMark {
     return '!'
 }
 
-function Test-HabiticaDailyDueToday {
+function Test-HabiticaDailyScheduledToday {
+    <#
+    .SYNOPSIS
+      Indica si una diaria toca hoy, aunque ya se haya completado.
+    #>
     param([Parameter(Mandatory)]$Task)
 
-    if ([bool](Get-HabiticaObjectValue $Task 'completed' $false)) { return $false }
+    # Habitica calcula isDue con la zona horaria de la cuenta. Es la fuente
+    # mas fiable y evita diferencias con la pagina web.
+    $apiDue = Get-HabiticaObjectValue $Task 'isDue' $null
+    if ($null -ne $apiDue) { return [bool]$apiDue }
 
     $today = (Get-Date).Date
 
@@ -145,6 +152,17 @@ function Test-HabiticaDailyDueToday {
     }
 }
 
+function Test-HabiticaDailyDueToday {
+    <#
+    .SYNOPSIS
+      Indica si una diaria toca hoy y sigue pendiente.
+    #>
+    param([Parameter(Mandatory)]$Task)
+
+    if ([bool](Get-HabiticaObjectValue $Task 'completed' $false)) { return $false }
+    return (Test-HabiticaDailyScheduledToday -Task $Task)
+}
+
 function ConvertTo-HabiticaTask {
     param([Parameter(Mandatory)]$Task)
 
@@ -159,6 +177,7 @@ function ConvertTo-HabiticaTask {
     $tags = @(ConvertTo-HabiticaArray (Get-HabiticaObjectValue $Task 'tags' $null) | Where-Object { $_ })
 
     $isDueToday = $false
+    $isScheduledToday = $false
     $isOverdue = $false
     if ($type -eq 'todo' -and $date) {
         $isDueToday = ($date -eq (Get-Date).Date)
@@ -166,6 +185,7 @@ function ConvertTo-HabiticaTask {
     }
     elseif ($type -eq 'daily') {
         $isDueToday = Test-HabiticaDailyDueToday -Task $Task
+        $isScheduledToday = Test-HabiticaDailyScheduledToday -Task $Task
         $isOverdue = $false
     }
 
@@ -189,6 +209,7 @@ function ConvertTo-HabiticaTask {
         DueDate       = $date
         DueDateText   = Format-HabiticaDateHuman $date
         IsDueToday    = $isDueToday
+        IsScheduledToday = $isScheduledToday
         IsOverdue     = $isOverdue
         Tags          = $tags
         Checklist     = $checklist
@@ -305,6 +326,21 @@ function Get-HabiticaTask {
     return @($tasks | ForEach-Object { ConvertTo-HabiticaTask -Task $_ })
 }
 
+function Get-HabiticaTaskDisplayOrder {
+    <#
+    .SYNOPSIS
+      Ordena las tareas como se muestran en 'h list': tareas, diarias,
+      habitos y recompensas. Los indices guardados deben usar este orden.
+    #>
+    param([AllowEmptyCollection()][object[]]$Tasks = @())
+
+    $ordered = @()
+    foreach ($type in @('todo', 'daily', 'habit', 'reward')) {
+        $ordered += @($Tasks | Where-Object { $_.Type -eq $type })
+    }
+    return @($ordered)
+}
+
 function Resolve-HabiticaTaskReference {
     <#
     .SYNOPSIS
@@ -318,12 +354,14 @@ function Resolve-HabiticaTaskReference {
     $reference = $Reference.Trim().Trim('"').Trim("'")
     if ([string]::IsNullOrWhiteSpace($reference)) { throw 'Indica una tarea por numero, id, alias o texto.' }
 
-    if ($reference -match '^[0-9a-fA-F-]{8,36}$') {
+    # UUID de Habitica: 8-4-4-4-12 hexadecimales. Si tiene este formato,
+    # se intenta directamente por ID y no se cae a busqueda por texto.
+    if ($reference -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
         try {
             return (Get-HabiticaTask -Id $reference)
         }
         catch {
-            # Puede ser un prefijo o un texto con aspecto hexadecimal.
+            throw ("No se encontro la tarea con id '{0}'. Verifica que el UUID sea correcto." -f $reference)
         }
     }
 
@@ -659,7 +697,8 @@ function Show-HabiticaScoreFeedback {
     param(
         [Parameter(Mandatory)]$Response,
         [Parameter(Mandatory)][string]$TaskText,
-        [Parameter(Mandatory)][string]$Direction
+        [Parameter(Mandatory)][string]$Direction,
+        [string]$TaskId = ''
     )
 
     $data = Get-HabiticaObjectValue $Response 'data' $null
@@ -672,6 +711,9 @@ function Show-HabiticaScoreFeedback {
     }
     else {
         Write-HabiticaLine ("  ~green~{0}~/~  {1}" -f $symbol, $TaskText)
+    }
+    if ($TaskId) {
+        Write-HabiticaLine ("         ~gray~ID:~/~ ~gray~{0}~/~" -f $TaskId)
     }
 
     if ($delta) {
@@ -728,7 +770,7 @@ function Invoke-HabiticaTaskScore {
             $response = Invoke-HabiticaApi -Method POST -Path ('tasks/{0}/score/{1}' -f [uri]::EscapeDataString($Id), $directionLower) -Full
 
             if (-not $Text) { $Text = $Id }
-            Show-HabiticaScoreFeedback -Response $response -TaskText $Text -Direction $directionLower
+            Show-HabiticaScoreFeedback -Response $response -TaskText $Text -Direction $directionLower -TaskId $Id
 
             if (Get-Command Update-HabiticaStatsCacheFromScore -ErrorAction SilentlyContinue) {
                 Update-HabiticaStatsCacheFromScore -ScoreData $response.data

@@ -94,6 +94,74 @@ try {
     $completedTask = Get-HabiticaTask -Id '11111111-1111-1111-1111-111111111111'
     Assert-True ($completedTask.Completed) 'La tarea #1 quedo completada'
 
+    $whichOutput = Get-HostOutput { h which 2 }
+    Assert-Match $whichOutput 'Pagar la luz' 'h which muestra la tarea #2'
+    Assert-Match $whichOutput '22222222-2222-2222-2222-222222222222' 'h which muestra el id'
+
+    $dryRunOutput = Get-HostOutput { h done 2 --dry-run }
+    Assert-Match $dryRunOutput 'Pagar la luz' 'h done --dry-run muestra la tarea sin completarla'
+    Assert-True (-not (Get-HabiticaTask -Id '22222222-2222-2222-2222-222222222222').Completed) 'h done --dry-run no modifica la tarea'
+
+    # UUID malo muestra error claro en lugar de coincidir por texto.
+    $badIdOutput = Get-HostOutput { h done '00000000-0000-0000-0000-000000000000' }
+    Assert-Match $badIdOutput 'No se encontro la tarea con id' 'UUID inexistente da error claro'
+
+    # El orden guardado para 'h list' debe coincidir con el orden agrupado en pantalla.
+    $module = Get-Module habitica-cli
+    $mixed = @(
+        [pscustomobject]@{ Type = 'reward'; Text = 'R1' }
+        [pscustomobject]@{ Type = 'habit'; Text = 'H1' }
+        [pscustomobject]@{ Type = 'todo'; Text = 'T1' }
+        [pscustomobject]@{ Type = 'daily'; Text = 'D1' }
+        [pscustomobject]@{ Type = 'todo'; Text = 'T2' }
+    )
+    $ordered = & $module { param($items) Get-HabiticaTaskDisplayOrder -Tasks $items } $mixed
+    $orderedText = (@($ordered | ForEach-Object { $_.Text }) -join ',')
+    Assert-True ($orderedText -eq 'T1,T2,D1,H1,R1') "h list guarda el orden agrupado (obtenido $orderedText)"
+
+    # El estado que deja 'h list' debe seguir el mismo orden que la pantalla.
+    $null = Get-HostOutput { Show-HabiticaAllTasks }
+    $statePath = Join-Path $tempHome 'state.json'
+    $savedState = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+    $savedTypes = @($savedState.lists.all.items | ForEach-Object { $_.type })
+    $typeOrder = @('todo', 'daily', 'habit', 'reward')
+    $lastRank = -1
+    $isOrdered = $true
+    foreach ($savedType in $savedTypes) {
+        $rank = [array]::IndexOf($typeOrder, $savedType)
+        if ($rank -lt $lastRank) { $isOrdered = $false; break }
+        $lastRank = $rank
+    }
+    Assert-True ($savedTypes.Count -gt 0) "h list guarda items en el estado (obtenido $($savedTypes.Count))"
+    Assert-True $isOrdered "h list persiste el orden agrupado (obtenido $($savedTypes -join ','))"
+
+    # h dailies muestra solo las que tocan hoy; --all incluye las demas.
+    $dailiesOutput = Get-HostOutput { h dailies }
+    Assert-Match $dailiesOutput 'Ejercicio' 'h dailies muestra la diaria activa'
+    Assert-True (-not $dailiesOutput.Contains('Leer 10 paginas')) 'h dailies oculta la diaria que no toca hoy'
+    Assert-Match $dailiesOutput 'no toca' 'h dailies avisa de las diarias ocultas'
+
+    $allDailiesOutput = Get-HostOutput { h dailies --all }
+    Assert-Match $allDailiesOutput 'Ejercicio' 'h dailies --all muestra la diaria activa'
+    Assert-Match $allDailiesOutput 'Leer 10 paginas' 'h dailies --all muestra la diaria inactiva'
+
+    $lsOutput = Get-HostOutput { h ls }
+    Assert-True (-not $lsOutput.Contains('Leer 10 paginas')) 'h ls oculta la diaria que no toca hoy'
+    Assert-Match $lsOutput 'no toca' 'h ls avisa de las diarias ocultas'
+
+    $lsAllOutput = Get-HostOutput { h ls --all }
+    Assert-Match $lsAllOutput 'Leer 10 paginas' 'h ls --all muestra la diaria inactiva'
+
+    # Regresion: el estado debe actualizarse aunque state.json ya exista.
+    # (File.Replace con $null fallaba en silencio y dejaba listas viejas.)
+    $null = Get-HostOutput { Show-HabiticaTaskList -Type Todo }
+    $beforeState = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+    Assert-True ($beforeState.lastKey -eq 'todos') 'El estado guarda la lista todos'
+    $null = Get-HostOutput { Show-HabiticaAllTasks }
+    $afterState = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+    Assert-True ($afterState.lastKey -eq 'all') 'El estado se actualiza cuando state.json ya existia'
+    Assert-True (@($afterState.lists.all.items).Count -gt 0) 'La lista all se guarda cuando state.json ya existia'
+
     # Azucar de creacion.
     $addOutput = Get-HostOutput { h add "Comprar pan" --due manana --priority alta --tag casa }
     Assert-Match $addOutput 'Tarea creada' 'h add crea una tarea'

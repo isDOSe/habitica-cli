@@ -14,7 +14,7 @@
   <img alt="PowerShell 5.1+" src="https://img.shields.io/badge/PowerShell-5.1%2B%20%7C%207%2B-5391FE?logo=powershell&logoColor=white">
   <img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white">
   <img alt="Habitica API v3" src="https://img.shields.io/badge/API-Habitica%20v3-8A2BE2">
-  <img alt="Tested" src="https://img.shields.io/badge/tests-100%20passing-2EA043">
+  <img alt="Tested" src="https://img.shields.io/badge/tests-119%20passing-2EA043">
   <img alt="TUI" src="https://img.shields.io/badge/interface-ASCII%20TUI-00A8A8">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-yellow">
 </p>
@@ -113,9 +113,11 @@ Referencia completa: **[docs/COMMANDS.md](docs/COMMANDS.md)**.
 
 ```powershell
 h                            # dashboard
-h ls                         # todas las tareas
+h ls                         # todas (diarias activas hoy)
+h ls --all                   # todas, incluidas diarias inactivas
 h todo                       # pendientes
-h dailies                    # diarias
+h dailies                    # diarias activas hoy
+h dailies --all              # todas las diarias
 h habits                     # hábitos
 h rewards                    # recompensas
 
@@ -126,6 +128,8 @@ h add "Ver una película" --reward --cost 20
 
 h show 3
 h done 3
+h done 3 --dry-run   # ver cuál se completaría
+h which 3            # ver a qué tarea resuelve el 3
 h undo 3
 h edit 3 --text "Nuevo título"
 h move 3 0

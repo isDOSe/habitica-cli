@@ -19,7 +19,8 @@ function New-MockTask {
         [string]$Notes = '',
         [string[]]$Tags = @(),
         [string]$Date = $null,
-        [bool]$Completed = $false
+        [bool]$Completed = $false,
+        [bool]$IsDue = $true
     )
 
     return [ordered]@{
@@ -31,6 +32,7 @@ function New-MockTask {
         priority   = $Priority
         attribute  = 'str'
         completed  = $Completed
+        isDue      = $IsDue
         tags       = @($Tags)
         checklist  = @()
         date       = $Date
@@ -54,7 +56,7 @@ $script:Tasks = @(
     (New-MockTask -Id '22222222-2222-2222-2222-222222222222' -Text 'Pagar la luz' -Type 'todo' -Priority 2 -Date ((Get-Date).AddDays(2).ToString('yyyy-MM-dd')))
     (New-MockTask -Id '33333333-3333-3333-3333-333333333333' -Text 'Llamar al dentista' -Type 'todo' -Priority 1)
     (New-MockTask -Id '44444444-4444-4444-4444-444444444444' -Text 'Ejercicio' -Type 'daily' -Priority 1.5 -Notes '30 minutos')
-    (New-MockTask -Id '55555555-5555-5555-5555-555555555555' -Text 'Leer 10 paginas' -Type 'daily' -Priority 1)
+    (New-MockTask -Id '55555555-5555-5555-5555-555555555555' -Text 'Leer 10 paginas' -Type 'daily' -Priority 1 -IsDue $false)
     (New-MockTask -Id '66666666-6666-6666-6666-666666666666' -Text 'Beber agua' -Type 'habit' -Priority 1 -Tags @('tag-salud'))
     (New-MockTask -Id '77777777-7777-7777-7777-777777777777' -Text 'Procrastinar' -Type 'habit' -Priority 0.1)
     (New-MockTask -Id '88888888-8888-8888-8888-888888888888' -Text 'Ver una pelicula' -Type 'reward' -Priority 1)
@@ -70,6 +72,11 @@ $script:Tasks[5].counterUp = 7
 $script:Tasks[5].counterDown = 1
 $script:Tasks[6].up = $false
 $script:Tasks[7].value = 20
+
+# Simula la API real: los tipos pueden llegar mezclados en cualquier orden.
+if ($env:HABITICA_MOCK_SHUFFLE -eq '1') {
+    $script:Tasks = @($script:Tasks | Sort-Object { [Guid]::NewGuid().ToString() })
+}
 
 $script:Tags = @(
     [ordered]@{ id = 'tag-casa'; name = 'casa' }

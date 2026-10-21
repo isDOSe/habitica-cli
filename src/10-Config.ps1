@@ -129,7 +129,7 @@ function Save-HabiticaConfigFile {
     $temporary = '{0}.tmp-{1}' -f $path, [Guid]::NewGuid().ToString('N')
     [System.IO.File]::WriteAllText($temporary, $json, (New-Object System.Text.UTF8Encoding($false)))
     if (Test-Path -LiteralPath $path) {
-        [System.IO.File]::Replace($temporary, $path, $null)
+        [System.IO.File]::Replace($temporary, $path, [NullString]::Value)
     }
     else {
         [System.IO.File]::Move($temporary, $path)

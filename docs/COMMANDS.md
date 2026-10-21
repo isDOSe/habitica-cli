@@ -27,9 +27,11 @@ leche                   alias
 | Comando | Acción |
 |---|---|
 | `h` / `h today` | Dashboard de hoy |
-| `h ls` | Todas las tareas, agrupadas |
+| `h ls` | Todas las tareas, agrupadas (solo diarias activas hoy) |
+| `h ls --all` | Todas, incluidas las diarias que no tocan hoy |
 | `h todo` | Tareas pendientes |
-| `h dailies` | Diarias |
+| `h dailies` | Diarias activas hoy |
+| `h dailies --all` | Todas las diarias, incluidas las que no tocan hoy |
 | `h habits` | Hábitos |
 | `h rewards` | Recompensas |
 | `h completed` | To-Dos completados |
@@ -37,6 +39,8 @@ leche                   alias
 | `h add "texto"` | Crear |
 | `h edit <ref>` | Editar |
 | `h done <ref>` | Completar / score up |
+| `h done <ref> --dry-run` | Ver cuál se completaría sin tocarla |
+| `h which <ref>` | Ver a qué tarea resuelve una referencia |
 | `h undo <ref>` | Deshacer / score down |
 | `h up <ref>` / `h down <ref>` | Puntuar hábito |
 | `h buy <ref>` | Comprar recompensa |

@@ -452,19 +452,32 @@ function Show-HabiticaTaskList {
         [string]$Title,
         [string]$Tag,
         [string]$Search,
-        [int]$Max = 0
+        [int]$Max = 0,
+        [switch]$ActiveOnly
     )
 
     $width = Get-TerminalWidth
     $contentWidth = $width - 4
 
     $tasks = @(Get-HabiticaTask -Type $Type -Tag $Tag -Search $Search)
+    $hiddenDailies = 0
+
+    if ($Type -eq 'Daily') {
+        if ($ActiveOnly) {
+            $allDailies = $tasks
+            $tasks = @($tasks | Where-Object { $_.IsScheduledToday })
+            $hiddenDailies = $allDailies.Count - $tasks.Count
+        }
+        else {
+            $hiddenDailies = @($tasks | Where-Object { -not $_.IsScheduledToday }).Count
+        }
+    }
 
     if (-not $Title) {
         $Title = switch ($Type) {
             'All' { 'TODAS LAS TAREAS' }
             'Todo' { 'TAREAS PENDIENTES' }
-            'Daily' { 'DIARIAS' }
+            'Daily' { if ($ActiveOnly) { 'DIARIAS ACTIVAS HOY' } else { 'DIARIAS' } }
             'Habit' { 'HABITOS' }
             'Reward' { 'RECOMPENSAS' }
             'CompletedTodo' { 'TAREAS COMPLETADAS' }
@@ -498,6 +511,11 @@ function Show-HabiticaTaskList {
         default { $lines += '~gray~Completa:~/~ ~gold~h done <n>~/~   ~gray~Deshaz:~/~ ~gold~h undo <n>~/~   ~gray~Detalle:~/~ ~gold~h show <n>~/~' }
     }
 
+    if ($Type -eq 'Daily' -and $hiddenDailies -gt 0) {
+        if ($ActiveOnly) { $lines += ('~gray~{0} diaria(s) no toca(n) hoy. Ver todas:~/~ ~gold~h dailies --all~/~' -f $hiddenDailies) }
+        else { $lines += ('~gray~{0} diaria(s) no toca(n) hoy. Ver solo activas:~/~ ~gold~h dailies~/~' -f $hiddenDailies) }
+    }
+
     Write-HabiticaPanel -Title $Title -Lines $lines -Width $width
     Write-HabiticaBlank
 }
@@ -528,19 +546,18 @@ function Show-HabiticaAllTasks {
     [CmdletBinding()]
     param(
         [string]$Tag,
-        [string]$Search
+        [string]$Search,
+        [switch]$IncludeInactiveDailies
     )
 
     $width = Get-TerminalWidth
     $contentWidth = $width - 4
     $tasks = @(Get-HabiticaTask -Type All -Tag $Tag -Search $Search)
-    Set-HabiticaLastList -Key 'all' -Tasks $tasks
+    $hiddenDailies = 0
 
-    Write-HabiticaBlank
-    if ($tasks.Count -eq 0) {
-        Write-HabiticaPanel -Title 'TODAS LAS TAREAS' -Lines @('~gray~No tienes tareas todavia.~/~', '', 'Crea la primera con ~gold~h add "texto"~/~.') -Width $width
-        Write-HabiticaBlank
-        return
+    if (-not $IncludeInactiveDailies) {
+        $hiddenDailies = @($tasks | Where-Object { $_.Type -eq 'daily' -and -not $_.IsScheduledToday }).Count
+        $tasks = @($tasks | Where-Object { $_.Type -ne 'daily' -or $_.IsScheduledToday })
     }
 
     $groups = @(
@@ -549,6 +566,18 @@ function Show-HabiticaAllTasks {
         @{ Type = 'habit'; Title = 'HABITOS' },
         @{ Type = 'reward'; Title = 'RECOMPENSAS' }
     )
+
+    # La lista se muestra agrupada por tipo. Guardamos exactamente el mismo
+    # orden para que los indices de 'h done <n>' coincidan con la pantalla.
+    $tasks = @(Get-HabiticaTaskDisplayOrder -Tasks $tasks)
+    Set-HabiticaLastList -Key 'all' -Tasks $tasks
+
+    Write-HabiticaBlank
+    if ($tasks.Count -eq 0) {
+        Write-HabiticaPanel -Title 'TODAS LAS TAREAS' -Lines @('~gray~No tienes tareas todavia.~/~', '', 'Crea la primera con ~gold~h add "texto"~/~.') -Width $width
+        Write-HabiticaBlank
+        return
+    }
 
     $offset = 0
     $total = $tasks.Count
@@ -561,6 +590,16 @@ function Show-HabiticaAllTasks {
         }
         Write-HabiticaBlank
         $offset += $subset.Count
+    }
+
+    if ($hiddenDailies -gt 0) {
+        if ($IncludeInactiveDailies) {
+            Write-HabiticaLine ("  ~gray~{0} diaria(s) no toca(n) hoy. Ver solo activas:~/~ ~gold~h ls~/~" -f $hiddenDailies)
+        }
+        else {
+            Write-HabiticaLine ("  ~gray~{0} diaria(s) no toca(n) hoy. Ver todas:~/~ ~gold~h ls --all~/~" -f $hiddenDailies)
+        }
+        Write-HabiticaBlank
     }
 
     Write-HabiticaLine ("  ~gray~Total: ~white~{0}~/~ tareas. Usa ~gold~h show <n>~/~ para ver el detalle." -f $total)
