@@ -1,4 +1,4 @@
-# Referencia de comandos
+# Habitica CLI — Referencia de comandos
 
 Guía completa de `h` / `habitica`. Los índices (`<ref>`) siempre apuntan a la **última lista mostrada**; también aceptan UUID, alias o un fragmento único del texto.
 

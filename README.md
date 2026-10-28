@@ -17,6 +17,7 @@
   <img alt="Tested" src="https://img.shields.io/badge/tests-154%20passing-2EA043">
   <img alt="TUI" src="https://img.shields.io/badge/interface-ASCII%20TUI-00A8A8">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-yellow">
+  <a href="https://github.com/isDOSe/habitica-cli"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-isDOSe%2Fhabitica--cli-181717?logo=github&logoColor=white"></a>
 </p>
 
 <p align="center">
@@ -29,12 +30,14 @@
 
 ---
 
+**Habitica CLI** es un cliente de terminal no oficial para Habitica: un único módulo de PowerShell, sin dependencias externas, que convierte tu cuenta en un centro de mando RPG con dashboard, TUI navegable, tareas, poderes de clase, party y retos. Instalas, escribes `h` y sigues jugando desde la consola.
+
 <a id="inicio"></a>
 
 ## Inicio rápido
 
 ```powershell
-git clone https://github.com/isDOSe/habitica-powershell.git
+git clone https://github.com/isDOSe/habitica-cli.git
 cd habitica-cli
 
 Import-Module .\habitica-cli.psd1
@@ -165,7 +168,9 @@ h challenges --mine
 h challenge join 1
 ```
 
-### Poderes
+### Poderes (skills)
+
+Los **skills** o poderes de clase son la forma de gastar PM para curarte, potenciar al equipo, dañar jefes o exprimir una tarea. En Habitica CLI se consultan con `h skills` y se lanzan con `h cast`.
 
 ```powershell
 h skills                     # poderes, coste, nivel y estado
@@ -176,7 +181,19 @@ h cast herramientas          # poder de equipo
 h cast 1 --times 2           # repetir el lanzamiento
 ```
 
-Los poderes gastan PM y se desbloquean entre los niveles 11 y 14. En la TUI, pulsa `p` o entra en la pestaña **Poderes**.
+Cómo funcionan:
+
+- Cada clase (Guerrero, Pícaro, Mago y Sanador) tiene **4 poderes** y solo puedes lanzar los de tu clase.
+- Se desbloquean en los **niveles 11, 12, 13 y 14**, en ese orden.
+- `h skills` muestra el número que usa `h cast`, el nivel, el coste en PM, el objetivo y el estado (`listo`, `sin PM` o `nivel X`).
+- `h cast` acepta el número, la clave en inglés (`smash`, `pickPocket`, `fireball`…), el nombre o un alias en español (`golpe`, `hurtar`, `llamas`, `curar`…).
+- Los poderes de tarea piden `--target`; también acepta número de la última lista, UUID, alias o texto. Los de equipo, todas las tareas o sobre ti no necesitan objetivo.
+- El coste se valida **antes** de llamar a la API, `--times` multiplica el gasto y el MP restante se actualiza en el estado local.
+- En la TUI, pulsa `p` o entra en la pestaña **Poderes**: `Enter` lanza, `v` abre el detalle.
+
+Desde PowerShell también existen `Get-HabiticaSkill` y `Invoke-HabiticaSkillCast` para scripts.
+
+Lista completa por clase: **[docs/COMMANDS.md#poderes-de-clase](docs/COMMANDS.md#poderes-de-clase)**.
 
 ### Cuenta
 
@@ -261,7 +278,7 @@ Para cargarlo siempre:
 ```powershell
 notepad $PROFILE
 # Añade (ajusta la ruta):
-Import-Module 'C:\ruta\a\habitica-powershell\habitica-cli.psd1'
+Import-Module 'C:\ruta\a\habitica-cli\habitica-cli.psd1'
 ```
 
 O usa:

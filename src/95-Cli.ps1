@@ -2,7 +2,7 @@
 #  Habitica CLI - Interprete de comandos y ayuda
 # =============================================================================
 
-$script:CliVersion = '1.2.0'
+$script:CliVersion = '1.2.1'
 
 $script:BooleanOptions = @(
     'todo', 'daily', 'habit', 'reward', 'yes', 'force', 'read', 'see', 'all',

@@ -1,6 +1,6 @@
 @{
     RootModule           = 'habitica-cli.psm1'
-    ModuleVersion        = '1.2.0'
+    ModuleVersion        = '1.2.1'
     GUID                 = 'd7f1c2a4-6b1e-4c8f-9a3d-5e2b7c9f0a11'
     Author               = 'Habitica CLI'
     CompanyName          = 'Habitica CLI'
@@ -46,9 +46,9 @@
     PrivateData          = @{
         PSData = @{
             Tags         = @('Habitica', 'CLI', 'TUI', 'Tasks', 'Productivity', 'RPG')
-            ProjectUri   = 'https://github.com/isDOSe/habitica-powershell'
-            LicenseUri   = 'https://raw.githubusercontent.com/isDOSe/habitica-powershell/main/LICENSE'
-            ReleaseNotes = 'v1.2.0: poderes de clase con h skills, h cast y pestana Poderes en la TUI. v1.1.0: h done acepta varias tareas a la vez (h done 1,2,3). v1.0.0: cliente completo con TUI, tareas, habitos, diarias, recompensas, etiquetas, party, chat, quests, retos y API generica.'
+            ProjectUri   = 'https://github.com/isDOSe/habitica-cli'
+            LicenseUri   = 'https://raw.githubusercontent.com/isDOSe/habitica-cli/main/LICENSE'
+            ReleaseNotes = 'v1.2.1: repositorio y proyecto renombrados a habitica-cli. v1.2.0: poderes de clase con h skills, h cast y pestana Poderes en la TUI. v1.1.0: h done acepta varias tareas a la vez (h done 1,2,3). v1.0.0: cliente completo con TUI, tareas, habitos, diarias, recompensas, etiquetas, party, chat, quests, retos y API generica.'
         }
     }
 }
