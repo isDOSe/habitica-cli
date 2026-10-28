@@ -2,7 +2,7 @@
 #  Habitica CLI - Interprete de comandos y ayuda
 # =============================================================================
 
-$script:CliVersion = '1.0.0'
+$script:CliVersion = '1.2.0'
 
 $script:BooleanOptions = @(
     'todo', 'daily', 'habit', 'reward', 'yes', 'force', 'read', 'see', 'all',
@@ -227,6 +227,50 @@ function Get-HabiticaCliTaskFromPositionals {
     return (($Positionals[$start..($Positionals.Count - 1)]) -join ' ').Trim()
 }
 
+function ConvertTo-HabiticaTaskReferenceList {
+    <#
+    .SYNOPSIS
+      Convierte los argumentos de un comando en una lista de referencias.
+
+    .DESCRIPTION
+      Acepta indices y UUID separados por comas o por espacios, por ejemplo
+      '1,2,3', '1 2 3' o 'uuid1,uuid2'. Si el texto no es una lista de
+      indices/UUID se devuelve como una sola referencia para no romper las
+      busquedas por titulo con espacios o comas.
+    #>
+    param(
+        [AllowNull()][string[]]$Positionals,
+        [int]$MinimumIndex = 0
+    )
+
+    if ($null -eq $Positionals -or $Positionals.Count -le $MinimumIndex) { return @() }
+
+    $tokens = @($Positionals[$MinimumIndex..($Positionals.Count - 1)])
+    $simplePattern = '^(\d+|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$'
+
+    $pieces = @()
+    foreach ($token in $tokens) {
+        foreach ($piece in ([string]$token -split ',')) {
+            $trimmed = $piece.Trim()
+            if ($trimmed) { $pieces += $trimmed }
+        }
+    }
+
+    if ($pieces.Count -eq 0) { return @() }
+
+    $isSimpleList = -not @($pieces | Where-Object { $_ -notmatch $simplePattern }).Count
+    if (-not $isSimpleList) {
+        # Texto libre: se conserva tal cual como una unica referencia.
+        return @(($tokens -join ' ').Trim())
+    }
+
+    $references = @()
+    foreach ($piece in $pieces) {
+        if ($references -notcontains $piece) { $references += $piece }
+    }
+    return $references
+}
+
 function Show-HabiticaCliHelp {
     <#
     .SYNOPSIS
@@ -255,6 +299,7 @@ function Show-HabiticaCliHelp {
             '  ~gold~h rewards~/~                  Recompensas',
             '  ~gold~h add "texto"~/~              Crear tarea',
             '  ~gold~h done <n|id|texto>~/~        Completar',
+            '  ~gold~h done 1,2,3~/~               Completar varias a la vez',
             '  ~gold~h done <n> --dry-run~/~       Ver cual se completaria',
             '  ~gold~h which <n|id|texto>~/~       Ver a que tarea apunta',
             '  ~gold~h undo <n>~/~                 Deshacer',
@@ -274,12 +319,14 @@ function Show-HabiticaCliHelp {
             '~gray~CUENTA~/~',
             '  ~gold~h stats~/~                    Estadisticas',
             '  ~gold~h profile~/~                  Ficha del heroe',
+            '  ~gold~h skills~/~                   Poderes de tu clase',
+            '  ~gold~h cast <n|clave>~/~           Lanzar un poder',
             '  ~gold~h notify~/~                   Notificaciones',
             '  ~gold~h config~/~                   Configuracion',
             '  ~gold~h api GET tasks/user~/~       Cualquier endpoint de la API',
             '  ~gold~h ui~/~                       Panel interactivo',
             '',
-            '~gray~AYUDA~/~   ~gold~h help tasks~/~  ~gold~h help social~/~  ~gold~h help api~/~  ~gold~h help ui~/~'
+            '~gray~AYUDA~/~   ~gold~h help tasks~/~  ~gold~h help social~/~  ~gold~h help powers~/~  ~gold~h help api~/~'
         )
     }
     elseif ($topicKey -in @('tasks', 'tareas')) {
@@ -300,9 +347,10 @@ function Show-HabiticaCliHelp {
             '  h habits             Habitos',
             '  h rewards            Recompensas',
             '  h show 3             Detalle de la tarea #3',
-            '  h done 3             Completar / score up
-  h done 3 --dry-run   Ver cual se completaria sin tocarla
-  h which 3            Ver a que tarea resuelve el 3',
+            '  h done 3             Completar / score up',
+            '  h done 1,2,3         Completar varias de golpe',
+            '  h done 3 --dry-run   Ver cual se completaria sin tocarla',
+            '  h which 3            Ver a que tarea resuelve el 3',
             '  h undo 3             Deshacer / score down',
             '  h up 3               Subir un habito',
             '  h down 3             Bajar un habito',
@@ -362,6 +410,25 @@ function Show-HabiticaCliHelp {
             '  h inbox send <uuid> "Hola"   Enviar mensaje privado'
         )
     }
+    elseif ($topicKey -in @('powers', 'skills', 'poderes', 'spells', 'cast')) {
+        $lines = @(
+            '~gold~PODERES DE CLASE~/~',
+            '  h skills                     Lista poderes, coste, nivel y estado',
+            '  h cast 1                     Lanza el poder #1',
+            '  h cast 1 --target 3          Sobre la tarea #3 de la ultima lista',
+            '  h cast smash 3               Por clave y tarea',
+            '  h cast herramientas          Poder de equipo (sin objetivo)',
+            '  h cast 1 --times 2           Repite el lanzamiento',
+            '',
+            '~gold~OBJETIVOS~/~',
+            '  tarea      Numero de la ultima lista, id, alias o texto',
+            '  equipo     Se aplica a toda la party',
+            '  ti         Solo a tu heroe',
+            '',
+            'Los poderes gastan PM y se desbloquean entre los niveles 11 y 14.',
+            'Tambien puedes lanzarlos desde el panel: pestana ~gold~Poderes~/~ o tecla ~gold~p~/~.'
+        )
+    }
     elseif ($topicKey -in @('api', 'raw')) {
         $lines = @(
             '~gold~API GENERICA~/~',
@@ -402,7 +469,8 @@ function Show-HabiticaCliHelp {
             'En Party: ~gold~i~/~ invitar, ~gold~l~/~ salir, ~gold~r~/~ recargar.',
             'En Chat: ~gold~m~/~ escribir, ~gold~l~/~ like, ~gold~s~/~ marcar leido.',
             'En Quest: ~gold~a~/~ aceptar, ~gold~s~/~ iniciar, ~gold~b~/~ abortar, ~gold~i~/~ invitar.',
-            'En Retos: ~gold~j~/~ unirse, ~gold~l~/~ salir, ~gold~Enter~/~ detalle.'
+            'En Retos: ~gold~j~/~ unirse, ~gold~l~/~ salir, ~gold~Enter~/~ detalle.',
+            'En Poderes: ~gold~Enter~/~ lanzar, ~gold~p~/~ ir directo desde cualquier pestana.'
         )
     }
     elseif ($topicKey -in @('config', 'setup', 'inicio')) {
@@ -432,7 +500,9 @@ function Show-HabiticaCliHelp {
     }
 
     Write-HabiticaBlank
-    Write-HabiticaPanel -Title ('AYUDA  //  ' + $Topic.ToUpperInvariant()) -Lines $lines -Width $width -Color 'gold'
+    $titleTopic = $Topic.ToUpperInvariant()
+    if ($topicKey -in @('powers', 'skills', 'poderes', 'spells', 'cast')) { $titleTopic = 'PODERES' }
+    Write-HabiticaPanel -Title ('AYUDA  //  ' + $titleTopic) -Lines $lines -Width $width -Color 'gold'
     Write-HabiticaBlank
 }
 
@@ -613,22 +683,47 @@ function Invoke-HabiticaCliScore {
         [ValidateSet('Up', 'Down')][string]$Direction
     )
 
-    if ($Positionals.Count -lt 1) { throw 'Uso: h done <n|id|texto>' }
-    $task = Resolve-HabiticaTaskReference -Reference ([string]$Positionals[0])
+    $references = @(ConvertTo-HabiticaTaskReferenceList -Positionals $Positionals)
+    if ($references.Count -eq 0) { throw 'Uso: h done <n|id|texto> [n2,n3...]' }
 
-    if ($Direction -eq 'Up' -and $task.Type -eq 'reward') {
-        throw ("'{0}' es una recompensa. Usa 'h buy {1}'." -f $task.Text, $Positionals[0])
+    $dryRun = Test-HabiticaCliFlag $Options @('dry-run', 'dryrun', 'see')
+    $failures = @()
+
+    foreach ($reference in $references) {
+        try {
+            $task = Resolve-HabiticaTaskReference -Reference $reference
+
+            if ($Direction -eq 'Up' -and $task.Type -eq 'reward') {
+                throw ("'{0}' es una recompensa. Usa 'h buy {1}'." -f $task.Text, $reference)
+            }
+
+            if ($dryRun) {
+                Write-HabiticaBlank
+                Write-HabiticaLine ("  ~gray~[simulacion]~/~ ~cyan~{0}~/~  ~white~{1}~/~" -f $task.TypeLabel, $task.Text)
+                Write-HabiticaLine ("           ~gray~ID:~/~ ~gray~{0}~/~" -f $task.Id)
+                Write-HabiticaBlank
+                continue
+            }
+
+            Invoke-HabiticaTaskScore -Id $task.Id -Direction $Direction -Text $task.Text | Out-Null
+        }
+        catch {
+            # Con una sola referencia el error se propaga como siempre.
+            if ($references.Count -eq 1) { throw }
+            $failures += [pscustomobject]@{ Reference = $reference; Message = $_.Exception.Message }
+        }
     }
 
-    if (Test-HabiticaCliFlag $Options @('dry-run', 'dryrun', 'see')) {
+    if ($failures.Count -gt 0) {
+        $width = Get-TerminalWidth
+        $messageWidth = [Math]::Max(20, $width - 12)
+        $lines = @($failures | ForEach-Object {
+            ("~red~{0}~/~  ~gray~{1}~/~" -f $_.Reference, (Truncate-HabiticaText -Text $_.Message -Width $messageWidth))
+        })
         Write-HabiticaBlank
-        Write-HabiticaLine ("  ~gray~[simulacion]~/~ ~cyan~{0}~/~  ~white~{1}~/~" -f $task.TypeLabel, $task.Text)
-        Write-HabiticaLine ("           ~gray~ID:~/~ ~gray~{0}~/~" -f $task.Id)
+        Write-HabiticaPanel -Title 'NO SE PUDIERON PROCESAR' -Lines $lines -Width $width -Color 'red'
         Write-HabiticaBlank
-        return
     }
-
-    Invoke-HabiticaTaskScore -Id $task.Id -Direction $Direction -Text $task.Text | Out-Null
 }
 
 function Invoke-HabiticaCliWhich {
@@ -950,6 +1045,33 @@ function Invoke-HabiticaCliChallenge {
     }
 }
 
+function Invoke-HabiticaCliCast {
+    param([hashtable]$Options, [string[]]$Positionals)
+
+    if ($Positionals.Count -lt 1) {
+        throw 'Uso: h cast <n|clave|nombre> [--target <n|id|texto>] [--times n]'
+    }
+
+    $reference = [string]$Positionals[0]
+    $target = Get-HabiticaCliOption -Options $Options -Names @('target', 'on', 'sobre')
+    if (-not $target -and $Positionals.Count -ge 2) {
+        $target = (($Positionals[1..($Positionals.Count - 1)]) -join ' ')
+    }
+
+    $quantity = 1
+    $times = Get-HabiticaCliOption -Options $Options -Names @('times', 'quantity', 'veces')
+    if ($times) {
+        if (-not [int]::TryParse([string]$times, [ref]$quantity)) {
+            throw '--times debe ser un numero entero.'
+        }
+    }
+    if ($quantity -lt 1 -or $quantity -gt 50) {
+        throw '--times debe estar entre 1 y 50.'
+    }
+
+    Invoke-HabiticaSkillCast -Skill $reference -Target ([string]$target) -Quantity $quantity | Out-Null
+}
+
 function Invoke-HabiticaCliConfig {
     param([hashtable]$Options, [string[]]$Positionals)
 
@@ -1049,6 +1171,7 @@ function Invoke-HabiticaCli {
         $helpTopic = switch ($commandKey) {
             { $_ -in @('add', 'new', 'edit', 'done', 'complete', 'undo', 'up', 'down', 'buy', 'show', 'which', 'rm', 'del', 'move', 'clear', 'check', 'tick', 'untick', 'todo', 'todos', 'tareas', 'daily', 'dailies', 'diarias', 'habit', 'habits', 'habitos', 'reward', 'rewards', 'recompensas', 'ls', 'list', 'all') } { 'tasks' }
             { $_ -in @('party', 'chat', 'quest', 'quests', 'challenges', 'challenge', 'retos', 'inbox', 'messages', 'groups') } { 'social' }
+            { $_ -in @('skills', 'poderes', 'spells', 'cast', 'lanzar', 'usar') } { 'powers' }
             { $_ -in @('config', 'login', 'setup', 'status') } { 'config' }
             'api' { 'api' }
             'raw' { 'api' }
@@ -1161,6 +1284,12 @@ function Invoke-HabiticaCli {
 
             'stats' { Show-HabiticaStats -Refresh }
             'stat' { Show-HabiticaStats -Refresh }
+            'skills' { Show-HabiticaSkills -Refresh }
+            'poderes' { Show-HabiticaSkills -Refresh }
+            'spells' { Show-HabiticaSkills -Refresh }
+            'cast' { Invoke-HabiticaCliCast -Options $options -Positionals $positionals }
+            'usar' { Invoke-HabiticaCliCast -Options $options -Positionals $positionals }
+            'lanzar' { Invoke-HabiticaCliCast -Options $options -Positionals $positionals }
             'profile' { Show-HabiticaProfile -Refresh }
             'perfil' { Show-HabiticaProfile -Refresh }
             'notify' {

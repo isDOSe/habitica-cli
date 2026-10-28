@@ -13,8 +13,18 @@ $script:UiTabs = @(
     @{ Key = 'chat'; Title = 'Chat' },
     @{ Key = 'quest'; Title = 'Quest' },
     @{ Key = 'challenge'; Title = 'Retos' },
-    @{ Key = 'profile'; Title = 'Perfil' }
+    @{ Key = 'profile'; Title = 'Perfil' },
+    @{ Key = 'skill'; Title = 'Poderes' }
 )
+
+function Get-HabiticaUiTabIndex {
+    param([Parameter(Mandatory)][string]$Key)
+
+    for ($i = 0; $i -lt $script:UiTabs.Count; $i++) {
+        if ($script:UiTabs[$i].Key -eq $Key) { return $i }
+    }
+    return -1
+}
 
 function Reset-HabiticaUiData {
     $script:UiDataCache = @{}
@@ -47,6 +57,7 @@ function Get-HabiticaUiData {
         'quest' { $value = Get-HabiticaQuest }
         'challenge' { $value = @(Get-HabiticaChallengeList -Member -Page 0) }
         'stats' { $value = Get-HabiticaStats }
+        'skill' { $value = @(Get-HabiticaSkill) }
         default { $value = $null }
     }
 
@@ -278,7 +289,7 @@ function Start-HabiticaUi {
             $maxFrameLines = [Math]::Max(10, $height - 2)
             $fixedLines = 8 + $tabLines.Count
             $panelBudget = [Math]::Max(3, $maxFrameLines - $fixedLines)
-            $hasDetailPanel = $tabKey -in @('today', 'todo', 'daily', 'habit', 'reward', 'chat', 'challenge')
+            $hasDetailPanel = $tabKey -in @('today', 'todo', 'daily', 'habit', 'reward', 'chat', 'challenge', 'skill')
             $reserveDetail = 0
             if ($hasDetailPanel -and $panelBudget -ge 12) { $reserveDetail = 6 }
             $listHeight = [Math]::Max(1, $panelBudget - 2 - $reserveDetail)
@@ -309,6 +320,7 @@ function Start-HabiticaUi {
 
             # ---- Contenido ------------------------------------------------
             $tasks = @()
+            $skills = @()
             $contentLines = @()
             $detailLines = @()
 
@@ -474,6 +486,42 @@ function Start-HabiticaUi {
                         $contentLines += ("~gray~Atributos:~/~ ~white~FUE {0}  INT {1}  PER {2}  CON {3}~/~" -f $stats.Strength, $stats.Intelligence, $stats.Perception, $stats.Constitution)
                         $contentLines += ("~gray~Puntos sin asignar:~/~ ~gold~{0}~/~" -f $stats.Points)
                     }
+
+                    'skill' {
+                        $skills = @(Get-HabiticaUiData -Key 'skill' -Force:$forceRefresh)
+                        if ($skills.Count -eq 0) {
+                            $contentLines = @(
+                                '~gray~Tu heroe no tiene clase todavia.~/~',
+                                '',
+                                '~gray~Elige Guerrero, Picaro, Mago o Sanador en Habitica.~/~',
+                                '~gray~Despues vuelve aqui para lanzar sus poderes.~/~'
+                            )
+                        }
+                        else {
+                            if ($selected -ge $skills.Count) { $selected = $skills.Count - 1 }
+                            if ($selected -lt 0) { $selected = 0 }
+
+                            $visible = $listHeight - 1
+                            if ($visible -lt 1) { $visible = 1 }
+                            if ($selected -lt $scroll) { $scroll = $selected }
+                            if ($selected -ge ($scroll + $visible)) { $scroll = $selected - $visible + 1 }
+                            $scroll = [Math]::Max(0, [Math]::Min($scroll, [Math]::Max(0, $skills.Count - $visible)))
+
+                            $contentLines = @('~gray~  #   NIV   PM  PODER                        OBJETIVO         ESTADO~/~')
+                            $end = [Math]::Min($skills.Count - 1, $scroll + $visible - 1)
+                            for ($i = $scroll; $i -le $end; $i++) {
+                                $skill = $skills[$i]
+                                $mark = if ($i -eq $selected) { '~gold~>~/~' } else { ' ' }
+                                $contentLines += ("$mark~gray~{0,3}~/~  ~white~{1,4}~/~  ~cyan~{2,3}~/~  ~gold~{3,-27}~/~  ~gray~{4,-15}~/~  ~{5}~{6,-8}~/~" -f $skill.Number, $skill.Level, $skill.Cost, $skill.Name, $skill.TargetLabel, $skill.StatusKind, $skill.Status)
+                            }
+
+                            $selectedSkill = $skills[$selected]
+                            $detailLines = @(
+                                ("~gold~{0}~/~   ~gray~{1} PM  //  objetivo: {2}  //  {3}~/~" -f $selectedSkill.Name, (Format-HabiticaNumber $selectedSkill.Cost 0), $selectedSkill.TargetLabel, $selectedSkill.Status),
+                                (Truncate-HabiticaText $selectedSkill.Description ($width - 6))
+                            )
+                        }
+                    }
                 }
             }
             catch {
@@ -498,6 +546,9 @@ function Start-HabiticaUi {
             $panelTitle = $tab.Title.ToUpperInvariant()
             if ($tasks.Count -gt 0 -and $tabKey -in @('today', 'todo', 'daily', 'habit', 'reward')) {
                 $panelTitle = '{0}  ({1})' -f $panelTitle, $tasks.Count
+            }
+            if ($skills.Count -gt 0 -and $tabKey -eq 'skill') {
+                $panelTitle = '{0}  ({1})' -f $panelTitle, $skills.Count
             }
 
             foreach ($line in (Get-HabiticaPanelLines -Title $panelTitle -Lines $contentLines -Width $width -Color 'cyan')) {
@@ -526,10 +577,11 @@ function Start-HabiticaUi {
                 'chat' { 'Flechas mover  m escribir  l like  s marcar leido  r recargar  Tab pestanas  q salir' }
                 'quest' { 'a aceptar  n rechazar  s iniciar  b abortar  c cancelar  l salir  i invitar  r recargar  q salir' }
                 'challenge' { 'Flechas mover  Enter/v detalle  j unirse  l salir  c crear  r recargar  q salir' }
+                'skill' { 'Flechas mover  Enter lanzar  v detalle  p poderes  r recargar  Tab pestanas  q salir' }
                 default { 'r recargar  Tab pestanas  ? ayuda  q salir' }
             }
             Write-HabiticaLine ("  ~gray~{0}~/~" -f (Truncate-HabiticaText $keys ($width - 4)))
-            Write-HabiticaLine ("  " + (Truncate-HabiticaText '~gray~? ayuda   Tab/Shift+Tab pestanas   1-9,0 ir a pestana~/~' ($width - 2))) -NoNewline
+            Write-HabiticaLine ("  " + (Truncate-HabiticaText '~gray~? ayuda   p poderes   Tab/Shift+Tab pestanas   1-9,0 ir a pestana~/~' ($width - 2))) -NoNewline
 
             # ---- Entrada --------------------------------------------------
             $key = Read-HabiticaUiKey
@@ -544,11 +596,11 @@ function Start-HabiticaUi {
                 switch ($key.Key) {
                     'UpArrow' {
                         if ($tabKey -eq 'chat') { $chatSelected--; if ($chatSelected -lt 0) { $chatSelected = 0 } }
-                        elseif ($tabKey -in @('today', 'todo', 'daily', 'habit', 'reward', 'challenge')) { $selected--; if ($selected -lt 0) { $selected = 0 } }
+                        elseif ($tabKey -in @('today', 'todo', 'daily', 'habit', 'reward', 'challenge', 'skill')) { $selected--; if ($selected -lt 0) { $selected = 0 } }
                     }
                     'DownArrow' {
                         if ($tabKey -eq 'chat') { $chatSelected++ }
-                        elseif ($tabKey -in @('today', 'todo', 'daily', 'habit', 'reward', 'challenge')) { $selected++ }
+                        elseif ($tabKey -in @('today', 'todo', 'daily', 'habit', 'reward', 'challenge', 'skill')) { $selected++ }
                     }
                     'PageUp' { if ($tabKey -eq 'chat') { $chatSelected -= 5 } else { $selected -= 5 }; if ($selected -lt 0) { $selected = 0 }; if ($chatSelected -lt 0) { $chatSelected = 0 } }
                     'PageDown' { if ($tabKey -eq 'chat') { $chatSelected += 5 } else { $selected += 5 } }
@@ -572,6 +624,28 @@ function Start-HabiticaUi {
                                 $statusKind = 'ok'
                             }
                         }
+                        elseif ($tabKey -eq 'skill') {
+                            if ($skills.Count -gt 0) {
+                                $skill = $skills[$selected]
+                                $targetValue = ''
+                                if ($skill.Target -in @('task', 'user')) {
+                                    $prompt = if ($skill.Target -eq 'task') { 'Tarea objetivo (n de la ultima lista, id o texto):' } else { 'Usuario objetivo (uuid):' }
+                                    $targetValue = Read-HabiticaUiInput -Prompt $prompt
+                                }
+
+                                if ($skill.Target -in @('task', 'user') -and [string]::IsNullOrWhiteSpace($targetValue)) {
+                                    $status = 'Lanzamiento cancelado.'
+                                }
+                                else {
+                                    $cast = Invoke-HabiticaSkillCast -Skill $skill.Key -Target $targetValue -Quiet
+                                    $status = ("Poder usado: {0} ({1} PM)" -f $cast.Name, (Format-HabiticaNumber $cast.Cost 0))
+                                    $statusKind = 'ok'
+                                    $script:UiDataCache.Remove('stats')
+                                    $script:UiDataCache.Remove('skill')
+                                    $forceRefresh = $true
+                                }
+                            }
+                        }
                         elseif ($tabKey -eq 'challenge') {
                             $challenges = @(Get-HabiticaUiData -Key 'challenge')
                             if ($challenges.Count -gt 0) {
@@ -592,11 +666,11 @@ function Start-HabiticaUi {
                                 if ($script:UiTabs[$currentTab].Key -eq 'chat') { $chatSelected = 9999 }
                             }
                         }
-                        elseif ($char -eq 'j' -and $tabKey -in @('chat', 'today', 'todo', 'daily', 'habit', 'reward')) {
+                        elseif ($char -eq 'j' -and $tabKey -in @('chat', 'today', 'todo', 'daily', 'habit', 'reward', 'skill')) {
                             if ($tabKey -eq 'chat') { $chatSelected++ }
                             else { $selected++ }
                         }
-                        elseif ($char -eq 'k' -and $tabKey -in @('chat', 'today', 'todo', 'daily', 'habit', 'reward')) {
+                        elseif ($char -eq 'k' -and $tabKey -in @('chat', 'today', 'todo', 'daily', 'habit', 'reward', 'skill')) {
                             if ($tabKey -eq 'chat') { $chatSelected--; if ($chatSelected -lt 0) { $chatSelected = 0 } }
                             else { $selected--; if ($selected -lt 0) { $selected = 0 } }
                         }
@@ -613,6 +687,13 @@ function Start-HabiticaUi {
                         elseif ($char -eq '?' -or $char -eq 'h') {
                             Show-HabiticaCliHelp -Topic 'ui'
                             [void](Read-HabiticaUiKey)
+                        }
+                        elseif ($char -eq 'p') {
+                            $skillTab = Get-HabiticaUiTabIndex -Key 'skill'
+                            if ($skillTab -ge 0) {
+                                $currentTab = $skillTab
+                                $selected = 0; $scroll = 0; $filter = ''
+                            }
                         }
                         elseif ($tabKey -in @('today', 'todo', 'daily', 'habit', 'reward')) {
                             if ($tasks.Count -eq 0 -and $char -ne 'a') {
@@ -777,6 +858,20 @@ function Start-HabiticaUi {
                                 }
                             }
                         }
+                        elseif ($tabKey -eq 'skill') {
+                            if ($skills.Count -gt 0 -and $char -eq 'v') {
+                                $skill = $skills[$selected]
+                                $lines = @(
+                                    ("~gold~{0}~/~" -f $skill.Name),
+                                    ("~gray~Coste:~/~ ~cyan~{0} PM~/~   ~gray~Nivel:~/~ ~white~{1}~/~   ~gray~Objetivo:~/~ ~white~{2}~/~" -f (Format-HabiticaNumber $skill.Cost 0), $skill.Level, $skill.TargetLabel),
+                                    '',
+                                    $skill.Description,
+                                    '',
+                                    ("~gray~Clave:~/~ ~gray~{0}~/~" -f $skill.Key)
+                                )
+                                Show-HabiticaUiOverlay -Title 'PODER' -Lines $lines -Width $width
+                            }
+                        }
                         elseif ($tabKey -eq 'party') {
                             switch ($char) {
                                 'i' {
@@ -800,7 +895,8 @@ function Start-HabiticaUi {
                                     }
                                 }
                                 'c' {
-                                    $currentTab = 6
+                                    $chatTab = Get-HabiticaUiTabIndex -Key 'chat'
+                                    if ($chatTab -ge 0) { $currentTab = $chatTab }
                                     $chatSelected = 0
                                 }
                             }

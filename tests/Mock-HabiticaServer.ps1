@@ -91,7 +91,7 @@ $script:Chat = @(
 )
 
 $script:Members = @(
-    [ordered]@{ _id = 'user-1'; profile = @{ name = 'TestHero' }; stats = @{ class = 'rogue'; lvl = 12; hp = 40; maxHealth = 50 }; auth = @{ timestamps = @{ lastLoggedIn = (Get-Date).ToString('o') } } }
+    [ordered]@{ _id = 'user-1'; profile = @{ name = 'TestHero' }; stats = @{ class = 'rogue'; lvl = 13; hp = 40; maxHealth = 50 }; auth = @{ timestamps = @{ lastLoggedIn = (Get-Date).ToString('o') } } }
     [ordered]@{ _id = 'user-2'; profile = @{ name = 'Luna' }; stats = @{ class = 'healer'; lvl = 10; hp = 48; maxHealth = 50 }; auth = @{ timestamps = @{ lastLoggedIn = (Get-Date).AddHours(-2).ToString('o') } } }
     [ordered]@{ _id = 'user-3'; profile = @{ name = 'Kai' }; stats = @{ class = 'warrior'; lvl = 14; hp = 35; maxHealth = 55 }; auth = @{ timestamps = @{ lastLoggedIn = (Get-Date).AddDays(-1).ToString('o') } } }
 )
@@ -100,8 +100,8 @@ $script:User = [ordered]@{
     _id       = 'user-1'
     profile   = @{ name = 'TestHero'; joined = '2020-01-01T00:00:00.000Z' }
     stats     = @{
-        hp = 40; maxHealth = 50; exp = 30; toNextLevel = 100; mp = 20; maxMP = 50;
-        gp = 123.45; lvl = 12; class = 'rogue'; points = 2;
+        hp = 40; maxHealth = 50; exp = 30; toNextLevel = 100; mp = 50; maxMP = 50;
+        gp = 123.45; lvl = 13; class = 'rogue'; points = 2;
         str = 10; int = 12; per = 14; con = 8; streak = 3;
         buffs = @{ str = 0; int = 0; per = 0; con = 0 }
     }
@@ -144,6 +144,33 @@ $script:Content = @{
     quests = @{
         goldenknight = @{ text = 'El Caballero Dorado'; notes = 'Derrota al caballero dorado.'; boss = @{ hp = 500; rage = @{ value = 50 } }; collect = @{} }
         dustbunnies = @{ text = 'Conejos de Polvo'; notes = 'Recoge pelusa.'; boss = $null; collect = @{ 'dust' = @{ text = 'Polvo'; count = 10 } } }
+    }
+}
+
+$script:MockSpells = @{
+    warrior = @{
+        smash = @{ mana = 10; target = 'task' }
+        defensiveStance = @{ mana = 25; target = 'self' }
+        valorousPresence = @{ mana = 20; target = 'party' }
+        intimidate = @{ mana = 15; target = 'party' }
+    }
+    rogue = @{
+        pickPocket = @{ mana = 10; target = 'task' }
+        backStab = @{ mana = 15; target = 'task' }
+        toolsOfTrade = @{ mana = 25; target = 'party' }
+        stealth = @{ mana = 45; target = 'self' }
+    }
+    wizard = @{
+        fireball = @{ mana = 10; target = 'task' }
+        mpheal = @{ mana = 30; target = 'party' }
+        earth = @{ mana = 35; target = 'party' }
+        frost = @{ mana = 40; target = 'self' }
+    }
+    healer = @{
+        heal = @{ mana = 15; target = 'self' }
+        brightness = @{ mana = 15; target = 'tasks' }
+        protectAura = @{ mana = 30; target = 'party' }
+        healAll = @{ mana = 25; target = 'party' }
     }
 }
 
@@ -427,6 +454,48 @@ try {
                     Send-MockJson -Stream $stream -Data $task
                     continue
                 }
+            }
+
+            if ($segments.Count -eq 4 -and $segments[0] -eq 'user' -and $segments[1] -eq 'class' -and $segments[2] -eq 'cast' -and $method -eq 'POST') {
+                $spellId = $segments[3]
+                $class = [string]$script:User.stats.class
+                $spell = $null
+                if ($script:MockSpells.ContainsKey($class)) { $spell = $script:MockSpells[$class][$spellId] }
+                if (-not $spell) {
+                    Send-MockError -Stream $stream -StatusCode 404 -Message 'Spell not found'
+                    continue
+                }
+
+                $quantity = 1
+                if ($bodyObject -and $bodyObject.PSObject.Properties['quantity']) { $quantity = [int]$bodyObject.quantity }
+                $cost = [double]$spell.mana * $quantity
+                if ([double]$script:User.stats.mp -lt $cost) {
+                    Send-MockError -Stream $stream -StatusCode 400 -Message 'Not enough mana'
+                    continue
+                }
+                $script:User.stats.mp = [double]$script:User.stats.mp - $cost
+
+                if ($spell.target -eq 'task') {
+                    $targetId = if ($query.ContainsKey('targetId')) { $query['targetId'] } else { '' }
+                    $task = $script:Tasks | Where-Object { $_.id -eq $targetId } | Select-Object -First 1
+                    if (-not $task) {
+                        Send-MockError -Stream $stream -StatusCode 404 -Message 'Task not found'
+                        continue
+                    }
+                    $task.value = [double]$task.value + 1
+                    Send-MockJson -Stream $stream -Data @{ user = $script:User; task = $task }
+                    continue
+                }
+                if ($spell.target -eq 'party' -or $spell.target -eq 'user') {
+                    Send-MockJson -Stream $stream -Data @{ user = $script:User; partyMembers = @($script:Members) }
+                    continue
+                }
+                if ($spell.target -eq 'tasks') {
+                    Send-MockJson -Stream $stream -Data @{ user = $script:User; tasks = @($script:Tasks) }
+                    continue
+                }
+                Send-MockJson -Stream $stream -Data @{ user = $script:User }
+                continue
             }
 
             if ($path -eq 'groups' -and $method -eq 'GET') {

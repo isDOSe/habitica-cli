@@ -1,6 +1,6 @@
 @{
     RootModule           = 'habitica-cli.psm1'
-    ModuleVersion        = '1.0.0'
+    ModuleVersion        = '1.2.0'
     GUID                 = 'd7f1c2a4-6b1e-4c8f-9a3d-5e2b7c9f0a11'
     Author               = 'Habitica CLI'
     CompanyName          = 'Habitica CLI'
@@ -21,7 +21,8 @@
         'Get-HabiticaTag', 'New-HabiticaTag', 'Set-HabiticaTag', 'Remove-HabiticaTag',
         'Move-HabiticaTag', 'Resolve-HabiticaTagId', 'Add-HabiticaTaskTag', 'Remove-HabiticaTaskTag'
         'Get-HabiticaUser', 'Get-HabiticaStats', 'Get-HabiticaNotification',
-        'Set-HabiticaNotificationStatus', 'Get-HabiticaInbox', 'Send-HabiticaPrivateMessage'
+        'Set-HabiticaNotificationStatus', 'Get-HabiticaInbox', 'Send-HabiticaPrivateMessage',
+        'Get-HabiticaSkill', 'Invoke-HabiticaSkillCast'
         'Get-HabiticaGroup', 'Get-HabiticaGroups', 'Get-HabiticaParty', 'Get-HabiticaPartyMembers',
         'Get-HabiticaMember', 'New-HabiticaParty', 'Join-HabiticaGroup', 'Exit-HabiticaGroup',
         'Send-HabiticaPartyInvite', 'Remove-HabiticaPartyMember',
@@ -32,7 +33,7 @@
         'Set-HabiticaChallenge', 'Join-HabiticaChallenge', 'Exit-HabiticaChallenge',
         'Remove-HabiticaChallenge', 'Copy-HabiticaChallenge', 'Export-HabiticaChallenge',
         'Select-HabiticaChallengeWinner', 'Get-HabiticaChallengeMembers'
-        'Show-HabiticaDashboard', 'Show-HabiticaStats', 'Show-HabiticaProfile',
+        'Show-HabiticaDashboard', 'Show-HabiticaStats', 'Show-HabiticaProfile', 'Show-HabiticaSkills',
         'Show-HabiticaTaskList', 'Show-HabiticaAllTasks', 'Show-HabiticaTaskDetail',
         'Show-HabiticaParty', 'Show-HabiticaChat', 'Show-HabiticaQuest',
         'Show-HabiticaQuestList', 'Show-HabiticaTags', 'Show-HabiticaNotifications',
@@ -47,7 +48,7 @@
             Tags         = @('Habitica', 'CLI', 'TUI', 'Tasks', 'Productivity', 'RPG')
             ProjectUri   = 'https://github.com/isDOSe/habitica-powershell'
             LicenseUri   = 'https://raw.githubusercontent.com/isDOSe/habitica-powershell/main/LICENSE'
-            ReleaseNotes = 'v1.0.0: cliente completo con TUI, tareas, habitos, diarias, recompensas, etiquetas, party, chat, quests, retos y API generica.'
+            ReleaseNotes = 'v1.2.0: poderes de clase con h skills, h cast y pestana Poderes en la TUI. v1.1.0: h done acepta varias tareas a la vez (h done 1,2,3). v1.0.0: cliente completo con TUI, tareas, habitos, diarias, recompensas, etiquetas, party, chat, quests, retos y API generica.'
         }
     }
 }

@@ -508,7 +508,10 @@ function Show-HabiticaTaskList {
     switch ($Type) {
         'Habit' { $lines += '~gray~Sube:~/~ ~gold~h up <n>~/~   ~gray~Baja:~/~ ~gold~h down <n>~/~   ~gray~Detalle:~/~ ~gold~h show <n>~/~' }
         'Reward' { $lines += '~gray~Compra:~/~ ~gold~h buy <n>~/~   ~gray~Detalle:~/~ ~gold~h show <n>~/~' }
-        default { $lines += '~gray~Completa:~/~ ~gold~h done <n>~/~   ~gray~Deshaz:~/~ ~gold~h undo <n>~/~   ~gray~Detalle:~/~ ~gold~h show <n>~/~' }
+        default {
+            $lines += '~gray~Completa:~/~ ~gold~h done <n>~/~   ~gray~Deshaz:~/~ ~gold~h undo <n>~/~   ~gray~Detalle:~/~ ~gold~h show <n>~/~'
+            $lines += '~gray~Varias a la vez:~/~ ~gold~h done 1,2,3~/~   ~gray~o~/~ ~gold~h done 1 2 3~/~'
+        }
     }
 
     if ($Type -eq 'Daily' -and $hiddenDailies -gt 0) {

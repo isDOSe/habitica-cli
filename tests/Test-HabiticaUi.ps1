@@ -60,6 +60,10 @@ try {
         $script:TestKeys.Enqueue((New-TestKey -Key 'Tab'))
         $script:TestKeys.Enqueue((New-TestKey -Key 'J' -Char 'j'))
         $script:TestKeys.Enqueue((New-TestKey -Key 'Tab'))
+        $script:TestKeys.Enqueue((New-TestKey -Key 'P' -Char 'p'))
+        $script:TestKeys.Enqueue((New-TestKey -Key 'DownArrow'))
+        $script:TestKeys.Enqueue((New-TestKey -Key 'DownArrow'))
+        $script:TestKeys.Enqueue((New-TestKey -Key 'Enter'))
         $script:TestKeys.Enqueue((New-TestKey -Key 'D1' -Char '1'))
         $script:TestKeys.Enqueue((New-TestKey -Key 'Oem2' -Char '?'))
         $script:TestKeys.Enqueue((New-TestKey -Key 'Escape'))
@@ -81,6 +85,8 @@ try {
         @{ Name = 'Pestana Quest'; Pattern = 'QUEST' },
         @{ Name = 'Pestana Retos'; Pattern = 'RETOS' },
         @{ Name = 'Pestana Perfil'; Pattern = 'Atributos' },
+        @{ Name = 'Pestana Poderes'; Pattern = 'PODERES' },
+        @{ Name = 'Accion poder'; Pattern = 'Poder usado' },
         @{ Name = 'Accion completar'; Pattern = 'Completada:' },
         @{ Name = 'Accion comprar'; Pattern = 'Deshecha:' },
         @{ Name = 'Accion like'; Pattern = 'Me gusta actualizado' },

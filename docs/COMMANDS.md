@@ -39,6 +39,7 @@ leche                   alias
 | `h add "texto"` | Crear |
 | `h edit <ref>` | Editar |
 | `h done <ref>` | Completar / score up |
+| `h done 1,2,3` | Completar varias en un solo comando (también `h done 1 2 3`) |
 | `h done <ref> --dry-run` | Ver cuál se completaría sin tocarla |
 | `h which <ref>` | Ver a qué tarea resuelve una referencia |
 | `h undo <ref>` | Deshacer / score down |
@@ -136,6 +137,28 @@ h notify read                     # todas como leídas
 h inbox
 h inbox send <uuid> "Hola"
 ```
+
+---
+
+## Poderes de clase
+
+```powershell
+h skills                          # lista poderes, coste, nivel y estado
+h cast 1                          # lanza el poder #1
+h cast 1 --target 3               # sobre la tarea #3 de la última lista
+h cast smash 3                    # por clave y tarea
+h cast herramientas               # poder de equipo (sin objetivo)
+h cast 1 --times 2                # repetir el lanzamiento
+```
+
+| Clase | Poderes |
+|---|---|
+| Guerrero | Golpe Brutal, Postura defensiva, Presencia Valerosa, Mirada intimidante |
+| Pícaro | Hurtar, Puñalada, Herramientas del Oficio, Sigilo |
+| Mago | Estallido de llamas, Corriente etérea, Terremoto, Frío escalofriante |
+| Sanador | Luz Sanadora, Claridad Abrasadora, Aura Protectora, Bendición |
+
+Los poderes de tarea aceptan `--target` con un número de la última lista, UUID, alias o texto. Los poderes de equipo, de tareas y sobre ti no necesitan objetivo. El coste se valida antes de llamar a la API y se descuentan los PM al lanzarlo.
 
 ---
 
@@ -267,6 +290,7 @@ lunes, martes, miercoles, jueves, viernes, sabado, domingo
 | `Tab` / `Shift+Tab` | Cambiar pestaña |
 | `1`..`9`, `0` | Ir a pestaña |
 | `r` | Recargar |
+| `p` | Ir a Poderes |
 | `/` | Filtrar |
 | `?` | Ayuda |
 | `q` / `Esc` | Salir |
@@ -294,6 +318,7 @@ lunes, martes, miercoles, jueves, viernes, sabado, domingo
 | Chat | `m` escribir, `l` like, `s` leído |
 | Quest | `a` aceptar, `n` rechazar, `s` iniciar, `b` abortar, `c` cancelar, `l` salir, `i` invitar |
 | Retos | `j` unirse, `l` salir, `c` crear, `Enter`/`v` detalle |
+| Poderes | `Enter` lanzar, `v` detalle |
 
 ---
 
@@ -311,6 +336,9 @@ Remove-HabiticaTask -Id <id> -Force
 
 Get-HabiticaStats
 Get-HabiticaUser
+Get-HabiticaSkill
+Get-HabiticaSkill -Class rogue
+Invoke-HabiticaSkillCast -Skill smash -Target 3
 Get-HabiticaTag
 Get-HabiticaParty
 Get-HabiticaChat

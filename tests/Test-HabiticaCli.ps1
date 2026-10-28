@@ -202,6 +202,40 @@ try {
     $buyOutput = Get-HostOutput { h buy $reward.Id }
     Assert-Match $buyOutput 'Cafe especial' 'h buy compra recompensa'
 
+    # h done acepta varias referencias en un solo comando: 1,2,3 / 1 2 3.
+    $moduleRef = Get-Module habitica-cli
+    $splitRefs = { ConvertTo-HabiticaTaskReferenceList -Positionals $args }
+    $commaRefs = & $moduleRef $splitRefs '1,2,3'
+    Assert-True (($commaRefs -join ',') -eq '1,2,3') "h done separa los indices por comas (obtenido $($commaRefs -join ','))"
+    $spaceRefs = & $moduleRef $splitRefs '1' '2' '3'
+    Assert-True (($spaceRefs -join ',') -eq '1,2,3') 'h done acepta indices separados por espacios'
+    $textRefs = @(& $moduleRef $splitRefs 'Comprar' 'leche')
+    Assert-True ($textRefs.Count -eq 1 -and $textRefs[0] -eq 'Comprar leche') "El texto con espacios sigue siendo una sola referencia (obtenido $($textRefs -join '|'))"
+    $dedupeRefs = & $moduleRef $splitRefs '2,2,3'
+    Assert-True (($dedupeRefs -join ',') -eq '2,3') 'Las referencias repetidas se deduplican'
+
+    $null = Get-HostOutput { h add "Multi uno" --priority facil }
+    $null = Get-HostOutput { h add "Multi dos" --priority facil }
+    $null = Get-HostOutput { h todo }
+    $multiState = Get-Content -LiteralPath (Join-Path $tempHome 'state.json') -Raw | ConvertFrom-Json
+    $multiItems = @($multiState.lists.todos.items | Where-Object { $_.text -eq 'Multi uno' -or $_.text -eq 'Multi dos' })
+    Assert-True ($multiItems.Count -eq 2) "Las dos tareas de prueba estan en la ultima lista (obtenido $($multiItems.Count))"
+    $multiIds = @($multiItems.id)
+    $multiIndexList = (@($multiItems.index) | Sort-Object) -join ','
+    $multiDone = Get-HostOutput { h done $multiIndexList }
+    Assert-Match $multiDone 'Multi uno' 'h done 1,2 completa la primera tarea'
+    Assert-Match $multiDone 'Multi dos' 'h done 1,2 completa la segunda tarea'
+    Assert-True (@($multiIds | Where-Object { -not (Get-HabiticaTask -Id $_).Completed }).Count -eq 0) 'Las dos tareas quedaron completadas'
+    $multiUndo = Get-HostOutput { h undo $multiIndexList }
+    Assert-True (@($multiIds | Where-Object { (Get-HabiticaTask -Id $_).Completed }).Count -eq 0) 'h undo acepta la misma lista y deshace'
+    $multiDry = Get-HostOutput { h done $multiIndexList --dry-run }
+    Assert-Match $multiDry 'simulacion' 'h done --dry-run admite varias referencias'
+    Assert-True (@($multiIds | Where-Object { (Get-HabiticaTask -Id $_).Completed }).Count -eq 0) 'h done --dry-run con varias no completa nada'
+    $partialDone = Get-HostOutput { h done "$multiIndexList,999" }
+    Assert-Match $partialDone 'NO SE PUDIERON PROCESAR' 'Una referencia mala se reporta sin abortar el resto'
+    Assert-True (@($multiIds | Where-Object { -not (Get-HabiticaTask -Id $_).Completed }).Count -eq 0) 'Las referencias validas se completan aunque otra falle'
+    Assert-Match (Get-HostOutput { h done "No existe esta tarea" }) 'no se encontro' 'Una referencia inexistente sigue dando error'
+
     Write-Host "`n== Checklist y etiquetas ==" -ForegroundColor Cyan
     $checkAdd = Get-HostOutput { h check add $bread.Id "Comprar en la panaderia" }
     Assert-Match $checkAdd 'Checklist' 'h check add agrega un item'
@@ -290,6 +324,44 @@ try {
     $challengeLeave = Get-HostOutput { h challenge leave 1 --yes }
     Assert-Match $challengeLeave 'abandonado' 'h challenge leave funciona'
 
+    Write-Host "`n== Poderes ==" -ForegroundColor Cyan
+    $skills = @(Get-HabiticaSkill)
+    Assert-True ($skills.Count -eq 4) "Get-HabiticaSkill devuelve 4 poderes (obtenido $($skills.Count))"
+    Assert-True (($skills | Where-Object { $_.Key -eq 'pickPocket' }).Available) 'Hurtar esta disponible con 50 PM'
+    $warriorSkills = @(Get-HabiticaSkill -Class warrior)
+    Assert-True ($warriorSkills.Count -eq 4) 'Get-HabiticaSkill -Class warrior devuelve 4'
+    Assert-True (-not ($warriorSkills | Where-Object { $_.Key -eq 'intimidate' }).Unlocked) 'El poder de nivel 14 aparece bloqueado'
+    $skillsOutput = Get-HostOutput { h skills }
+    Assert-Match $skillsOutput 'Hurtar' 'h skills muestra Hurtar'
+    Assert-Match $skillsOutput 'Herramientas del Oficio' 'h skills muestra el poder de equipo'
+    Assert-Match $skillsOutput '50/50' 'h skills muestra el MP actual'
+    Assert-True (-not $skillsOutput.Contains('~/~')) 'h skills no filtra markup literal'
+
+    $castOutput = Get-HostOutput { h cast hurtar --target "Comprar pan integral" }
+    Assert-Match $castOutput 'PODER' 'h cast muestra el panel de lanzamiento'
+    Assert-Match $castOutput 'Hurtar' 'h cast identifica el poder'
+    Assert-Match $castOutput 'Comprar pan integral' 'h cast muestra la tarea objetivo'
+    $stats = Get-HabiticaStats -Refresh
+    Assert-True ($stats.MP -eq 40) "Hurtar descuenta 10 PM (obtenido $($stats.MP))"
+
+    $partyCast = Get-HostOutput { h cast herramientas }
+    Assert-Match $partyCast 'Herramientas del Oficio' 'h cast lanza un poder de equipo sin objetivo'
+    $stats = Get-HabiticaStats -Refresh
+    Assert-True ($stats.MP -eq 15) "El poder de equipo descuenta 25 PM (obtenido $($stats.MP))"
+
+    $noTargetOutput = Get-HostOutput { h cast punalada }
+    Assert-Match $noTargetOutput 'necesita una tarea objetivo' 'Un poder de tarea exige objetivo'
+    $noManaOutput = Get-HostOutput { h cast punalada --times 2 --target "Comprar pan integral" }
+    Assert-Match $noManaOutput 'No tienes PM suficientes' 'Un poder sin PM suficientes se rechaza antes de llamar a la API'
+
+    $numberCast = Get-HostOutput { h cast 1 --target "Comprar pan integral" }
+    Assert-Match $numberCast 'Hurtar' 'h cast acepta el numero de la lista de poderes'
+    $stats = Get-HabiticaStats -Refresh
+    Assert-True ($stats.MP -eq 5) "El lanzamiento por numero descuenta PM (obtenido $($stats.MP))"
+
+    $unknownCast = Get-HostOutput { h cast noexiste }
+    Assert-Match $unknownCast 'No existe el poder' 'Un poder inexistente da un error claro'
+
     Write-Host "`n== Buzon y notificaciones ==" -ForegroundColor Cyan
     $inboxOutput = Get-HostOutput { Show-HabiticaInbox }
     Assert-Match $inboxOutput 'Te apuntas a la quest' 'Buzon muestra mensajes'
@@ -327,6 +399,10 @@ try {
     $helpOutput = Get-HostOutput { h help }
     Assert-Match $helpOutput 'TAREAS' 'Ayuda general'
     Assert-True (-not $helpOutput.Contains('~/~')) 'Ayuda no muestra markup literal'
+    $powersHelp = Get-HostOutput { h help powers }
+    Assert-Match $powersHelp 'PODERES DE CLASE' 'h help powers muestra la ayuda de poderes'
+    $castHelp = Get-HostOutput { h cast --help }
+    Assert-Match $castHelp 'PODERES DE CLASE' 'h cast --help muestra la ayuda de poderes'
     $configOutput = Get-HostOutput { h config }
     Assert-Match $configOutput 'CONFIGURACION' 'h config muestra panel'
     Assert-True (-not $configOutput.Contains('test-token')) 'h config no revela el token'

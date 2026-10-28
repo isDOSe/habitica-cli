@@ -14,7 +14,7 @@
   <img alt="PowerShell 5.1+" src="https://img.shields.io/badge/PowerShell-5.1%2B%20%7C%207%2B-5391FE?logo=powershell&logoColor=white">
   <img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white">
   <img alt="Habitica API v3" src="https://img.shields.io/badge/API-Habitica%20v3-8A2BE2">
-  <img alt="Tested" src="https://img.shields.io/badge/tests-119%20passing-2EA043">
+  <img alt="Tested" src="https://img.shields.io/badge/tests-154%20passing-2EA043">
   <img alt="TUI" src="https://img.shields.io/badge/interface-ASCII%20TUI-00A8A8">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-yellow">
 </p>
@@ -61,8 +61,9 @@ Consigue tus credenciales en **Habitica → Ajustes → API**.
 | | |
 |---|---|
 | **Dashboard RPG** | HP, XP, MP, oro, nivel, clase, racha y misiones del día en un panel ASCII. |
-| **TUI navegable** | Pestañas de Hoy, Tareas, Diarias, Hábitos, Premios, Party, Chat, Quest, Retos y Perfil. |
+| **TUI navegable** | Pestañas de Hoy, Tareas, Diarias, Hábitos, Premios, Party, Chat, Quest, Retos, Perfil y Poderes. |
 | **Tareas completas** | Crear, editar, completar, deshacer, mover, borrar, buscar y filtrar. |
+| **Poderes de clase** | Lista y lanza habilidades con coste de MP, nivel y objetivo desde `h cast` o la TUI. |
 | **Checklists** | Ver, agregar, editar, marcar y eliminar items. |
 | **Etiquetas** | CRUD, asociar, quitar y reordenar. |
 | **Social** | Party, miembros, invitaciones, chat, likes, quests y retos. |
@@ -99,7 +100,7 @@ Consigue tus credenciales en **Habitica → Ajustes → API**.
 +----------------------------------------------------------------------------+
 ```
 
-Los índices (`h done 3`) apuntan a la última lista mostrada. También puedes usar un UUID, un alias o un fragmento único del título.
+Los índices (`h done 3`) apuntan a la última lista mostrada. También puedes usar un UUID, un alias o un fragmento único del título. Para completar varias de golpe: `h done 1,2,3` (o `h done 1 2 3`).
 
 ---
 
@@ -128,6 +129,7 @@ h add "Ver una película" --reward --cost 20
 
 h show 3
 h done 3
+h done 1,2,3         # completar varias de golpe
 h done 3 --dry-run   # ver cuál se completaría
 h which 3            # ver a qué tarea resuelve el 3
 h undo 3
@@ -162,6 +164,19 @@ h quest invite <clave>
 h challenges --mine
 h challenge join 1
 ```
+
+### Poderes
+
+```powershell
+h skills                     # poderes, coste, nivel y estado
+h cast 1                     # lanzar el poder #1
+h cast 1 --target 3          # sobre la tarea #3 de la última lista
+h cast smash 3               # por clave y tarea
+h cast herramientas          # poder de equipo
+h cast 1 --times 2           # repetir el lanzamiento
+```
+
+Los poderes gastan PM y se desbloquean entre los niveles 11 y 14. En la TUI, pulsa `p` o entra en la pestaña **Poderes**.
 
 ### Cuenta
 
@@ -212,12 +227,13 @@ La TUI usa la **pantalla alternativa** del terminal, se adapta a la altura de la
 | `t` | Etiqueta |
 | `m` | Mover al principio |
 | `v` | Ver detalle |
+| `p` | Ir a Poderes |
 | `/` | Filtrar |
 | `r` | Recargar |
 | `?` | Ayuda |
 | `q` / `Esc` | Salir |
 
-En Party: `i` invitar, `l` salir. En Chat: `m` escribir, `l` like, `s` leído. En Quest: `a` aceptar, `s` iniciar, `b` abortar, `i` invitar. En Retos: `j` unirse, `l` salir, `c` crear.
+En Party: `i` invitar, `l` salir. En Chat: `m` escribir, `l` like, `s` leído. En Quest: `a` aceptar, `s` iniciar, `b` abortar, `i` invitar. En Retos: `j` unirse, `l` salir, `c` crear. En Poderes: `Enter` lanzar, `v` detalle.
 
 Detalle de teclas: **[docs/COMMANDS.md#teclas-de-la-tui](docs/COMMANDS.md#teclas-de-la-tui)**.
 
@@ -305,7 +321,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\Test-HabiticaUi.ps1
 Resultado esperado:
 
 ```text
-Pruebas superadas: 100
+Pruebas superadas: 154
 TUI OK
 ```
 
@@ -328,6 +344,7 @@ habitica-cli/
 │   ├── 40-Tasks.ps1           Tareas y checklists
 │   ├── 50-Tags.ps1            Etiquetas
 │   ├── 60-User.ps1            Stats, notificaciones, inbox
+│   ├── 65-Skills.ps1          Poderes de clase y lanzamiento
 │   ├── 70-Groups.ps1          Party, chat, quests
 │   ├── 80-Challenges.ps1      Retos
 │   ├── 90-Render.ps1          Banner, paneles, tablas

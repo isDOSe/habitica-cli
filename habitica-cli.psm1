@@ -10,6 +10,7 @@ $files = @(
     'src\40-Tasks.ps1'
     'src\50-Tags.ps1'
     'src\60-User.ps1'
+    'src\65-Skills.ps1'
     'src\70-Groups.ps1'
     'src\80-Challenges.ps1'
     'src\90-Render.ps1'
@@ -63,7 +64,8 @@ Export-ModuleMember -Function @(
     'Move-HabiticaTag', 'Resolve-HabiticaTagId', 'Add-HabiticaTaskTag', 'Remove-HabiticaTaskTag'
 
     'Get-HabiticaUser', 'Get-HabiticaStats', 'Get-HabiticaNotification',
-    'Set-HabiticaNotificationStatus', 'Get-HabiticaInbox', 'Send-HabiticaPrivateMessage'
+    'Set-HabiticaNotificationStatus', 'Get-HabiticaInbox', 'Send-HabiticaPrivateMessage',
+    'Get-HabiticaSkill', 'Invoke-HabiticaSkillCast'
 
     'Get-HabiticaGroup', 'Get-HabiticaGroups', 'Get-HabiticaParty', 'Get-HabiticaPartyMembers',
     'Get-HabiticaMember', 'New-HabiticaParty', 'Join-HabiticaGroup', 'Exit-HabiticaGroup',
@@ -77,7 +79,7 @@ Export-ModuleMember -Function @(
     'Remove-HabiticaChallenge', 'Copy-HabiticaChallenge', 'Export-HabiticaChallenge',
     'Select-HabiticaChallengeWinner', 'Get-HabiticaChallengeMembers'
 
-    'Show-HabiticaDashboard', 'Show-HabiticaStats', 'Show-HabiticaProfile',
+    'Show-HabiticaDashboard', 'Show-HabiticaStats', 'Show-HabiticaProfile', 'Show-HabiticaSkills',
     'Show-HabiticaTaskList', 'Show-HabiticaAllTasks', 'Show-HabiticaTaskDetail',
     'Show-HabiticaParty', 'Show-HabiticaChat', 'Show-HabiticaQuest',
     'Show-HabiticaQuestList', 'Show-HabiticaTags', 'Show-HabiticaNotifications',
